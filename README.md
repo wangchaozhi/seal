@@ -6,7 +6,7 @@
 
 - 完整 SealConfig v2 编辑器：圆/椭圆/方章、六类文字/中心图片图层、边框高级参数、五种确定性纹理、模板、本地草稿与 40 步撤销重做。
 - 本地 SVG/PNG 预览导出；Go 严格校验并渲染正式 SVG；Node Worker 使用 resvg + sharp 生成 PNG、重编码上传图片并移除元数据。
-- 注册/登录、PBKDF2 密码哈希、持久化 HttpOnly 会话、设备查看/吊销、管理员 TOTP。
+- 邮箱注册/登录、QQ/微信/GitHub/Google OAuth 快捷登录、PBKDF2 密码哈希、持久化 HttpOnly 会话、设备查看/吊销、管理员 TOTP。
 - 云配置、异步生成历史、幂等任务、私有对象存储、120 秒单次下载令牌。
 - 固定服务端价格、支付回调 HMAC 验签/金额校验/幂等、单次解锁、VIP、退款与发票流程。
 - 用户/订单/任务/退款/发票/模板/字体/纹理/审计后台；VIP 资源配置按服务端权益过滤。
@@ -35,6 +35,10 @@ BASE_URL=http://localhost:8080 ./scripts/smoke-test.sh
 Web 入口为 `http://localhost:8088`。Compose 会启动 PostgreSQL、迁移、Redis、API、PNG Worker 和 Nginx Web。
 
 生产环境必须设置强随机 `APP_PAYMENT_CALLBACK_SECRET`、Base32 `APP_ADMIN_MFA_SECRET`，关闭支付模拟并由 TLS 入口代理服务。部署与恢复步骤见 [deployment.md](docs/operations/deployment.md)，上线门禁见 [acceptance.md](docs/operations/acceptance.md)，接口契约见 [openapi.yaml](docs/contracts/openapi.yaml)。
+
+## 发布版本
+
+在 `main` 中的提交上创建语义化版本标签（例如 `v2.1.0`）并推送后，Release CI 会执行全量测试，生成 API 跨平台二进制、Web 与部署压缩包、SHA-256 校验和及构建来源证明，同时发布三套多架构 GHCR 镜像并创建 GitHub Release。预发布标签可使用 `v2.1.0-rc.1`。
 
 ## 安全边界
 

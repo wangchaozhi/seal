@@ -6,6 +6,10 @@
 - `APP_ORIGIN` 必须是唯一 HTTPS Web Origin。
 - `APP_PAYMENT_CALLBACK_SECRET` 使用至少 32 字节随机值。
 - `APP_ADMIN_MFA_SECRET` 使用认证器可导入的 Base32 随机值；生产配置管理员邮箱时必填。
+- QQ 登录需在 QQ 互联创建已审核的网站应用，配置 `APP_QQ_APP_ID`、`APP_QQ_APP_SECRET`，并登记回调 `/api/v1/auth/oauth/qq/callback`。
+- 微信登录需在微信开放平台创建已审核的网站应用，配置 `APP_WECHAT_APP_ID`、`APP_WECHAT_APP_SECRET`，并登记回调 `/api/v1/auth/oauth/wechat/callback`。如入口域名与 `APP_ORIGIN` 不同，显式设置对应 `*_REDIRECT_URL`。
+- GitHub 登录需创建 OAuth App，配置 `APP_GITHUB_CLIENT_ID`、`APP_GITHUB_CLIENT_SECRET`，回调为 `/api/v1/auth/oauth/github/callback`。
+- Google 登录需在 Google Cloud 创建 Web OAuth Client、配置同意屏幕与 `APP_GOOGLE_CLIENT_ID`、`APP_GOOGLE_CLIENT_SECRET`，回调为 `/api/v1/auth/oauth/google/callback`。
 - PostgreSQL 与 Redis 使用独立账号、TLS/私网访问和持久卷；对象目录挂载私有持久卷。
 
 ## 发布
@@ -25,7 +29,7 @@
 
 ## 密钥轮换
 
-- 支付密钥与 TOTP 秘钥通过密钥管理系统注入，禁止写入镜像或仓库。
+- 支付密钥、OAuth AppSecret 与 TOTP 秘钥通过密钥管理系统注入，禁止写入镜像或仓库。
 - 支付密钥轮换采用渠道双密钥窗口；旧密钥仅在最长回调重试窗口内保留。
 - 管理员 TOTP 轮换后吊销该管理员全部设备会话并重新绑定。
 - 发生泄漏时同时吊销会话和未消费下载令牌，保留散列审计，不记录原始令牌。

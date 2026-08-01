@@ -20,6 +20,18 @@ type Config struct {
 	DatabaseURL        string
 	RedisURL           string
 	AdminMFASecret     string
+	QQAppID            string
+	QQAppSecret        string
+	QQRedirectURL      string
+	WeChatAppID        string
+	WeChatAppSecret    string
+	WeChatRedirectURL  string
+	GitHubClientID     string
+	GitHubClientSecret string
+	GitHubRedirectURL  string
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
 }
 
 func Load() Config {
@@ -38,6 +50,18 @@ func Load() Config {
 		DatabaseURL:        os.Getenv("APP_DATABASE_URL"),
 		RedisURL:           os.Getenv("APP_REDIS_URL"),
 		AdminMFASecret:     os.Getenv("APP_ADMIN_MFA_SECRET"),
+		QQAppID:            os.Getenv("APP_QQ_APP_ID"),
+		QQAppSecret:        os.Getenv("APP_QQ_APP_SECRET"),
+		QQRedirectURL:      os.Getenv("APP_QQ_REDIRECT_URL"),
+		WeChatAppID:        os.Getenv("APP_WECHAT_APP_ID"),
+		WeChatAppSecret:    os.Getenv("APP_WECHAT_APP_SECRET"),
+		WeChatRedirectURL:  os.Getenv("APP_WECHAT_REDIRECT_URL"),
+		GitHubClientID:     os.Getenv("APP_GITHUB_CLIENT_ID"),
+		GitHubClientSecret: os.Getenv("APP_GITHUB_CLIENT_SECRET"),
+		GitHubRedirectURL:  os.Getenv("APP_GITHUB_REDIRECT_URL"),
+		GoogleClientID:     os.Getenv("APP_GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("APP_GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURL:  os.Getenv("APP_GOOGLE_REDIRECT_URL"),
 	}
 }
 

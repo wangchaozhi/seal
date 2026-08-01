@@ -27,6 +27,9 @@ type User struct {
 	CreatedAt       time.Time  `json:"createdAt"`
 	VIPExpiresAt    *time.Time `json:"vipExpiresAt,omitempty"`
 	Role            string     `json:"role"`
+	AuthProvider    string     `json:"authProvider,omitempty"`
+	AuthSubject     string     `json:"authSubject,omitempty"`
+	DisplayName     string     `json:"displayName,omitempty"`
 }
 
 type SealConfigRecord struct {
@@ -357,6 +360,17 @@ func (store *StateStore) FindUserByEmail(email string) (User, bool) {
 	defer unlock()
 	for _, user := range store.data.Users {
 		if user.Email == email {
+			return user, true
+		}
+	}
+	return User{}, false
+}
+
+func (store *StateStore) FindUserByExternalIdentity(provider, subject string) (User, bool) {
+	unlock := store.lockForRead()
+	defer unlock()
+	for _, user := range store.data.Users {
+		if user.AuthProvider == provider && user.AuthSubject == subject {
 			return user, true
 		}
 	}

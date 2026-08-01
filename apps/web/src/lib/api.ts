@@ -2,7 +2,8 @@ import type { SealConfig } from "../types/seal";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "/api/v1";
 
-export interface User { id: string; email: string; membershipLevel: "free" | "vip"; status: string; role: "user" | "admin"; createdAt: string; vipExpiresAt?: string }
+export interface User { id: string; email: string; membershipLevel: "free" | "vip"; status: string; role: "user" | "admin"; createdAt: string; vipExpiresAt?: string; authProvider?: "qq" | "wechat" | "github" | "google"; displayName?: string }
+export interface OAuthProviders { qq: boolean; wechat: boolean; github: boolean; google: boolean }
 export interface CloudConfig { id: string; userId: string; name: string; config: SealConfig; createdAt: string; updatedAt: string }
 export interface Generation { id: string; userId: string; config: SealConfig; rendererVersion: string; format: string; status: "queued" | "rendering" | "succeeded" | "failed"; watermark: boolean; failureReason?: string; createdAt: string; finishedAt?: string }
 export interface Order { id: string; orderNo: string; userId: string; generationId?: string; product: "single_export" | "vip_monthly"; amountCents: number; status: "pending" | "paid" | "refunded"; createdAt: string; paidAt?: string }
@@ -42,6 +43,15 @@ export async function login(email: string, password: string, mfaCode?: string): 
 export async function register(email: string, password: string, mfaCode?: string): Promise<User> {
 	const response = await apiFetch("/auth/register", { method: "POST", body: JSON.stringify({ email, password, ...(mfaCode ? { mfaCode } : {}) }) });
   return ((await response.json()) as { user: User }).user;
+}
+
+export async function oauthProviders(): Promise<OAuthProviders> {
+  const response = await apiFetch("/auth/oauth/providers");
+  return response.json();
+}
+
+export function oauthStartURL(provider: keyof OAuthProviders): string {
+  return `${API_BASE_URL}/auth/oauth/${provider}/start`;
 }
 
 export async function logout(): Promise<void> { await apiFetch("/auth/logout", { method: "POST" }); }

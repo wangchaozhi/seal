@@ -82,6 +82,11 @@ func main() {
 	platformService.PaymentSecret = cfg.PaymentSecret
 	platformService.AdminEmail = cfg.AdminEmail
 	platformService.AdminMFASecret = cfg.AdminMFASecret
+	platformService.Origin = cfg.Origin
+	platformService.QQOAuth = platform.DefaultQQOAuthConfig(cfg.QQAppID, cfg.QQAppSecret, cfg.QQRedirectURL, cfg.Origin)
+	platformService.WeChatOAuth = platform.DefaultWeChatOAuthConfig(cfg.WeChatAppID, cfg.WeChatAppSecret, cfg.WeChatRedirectURL, cfg.Origin)
+	platformService.GitHubOAuth = platform.DefaultGitHubOAuthConfig(cfg.GitHubClientID, cfg.GitHubClientSecret, cfg.GitHubRedirectURL, cfg.Origin)
+	platformService.GoogleOAuth = platform.DefaultGoogleOAuthConfig(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL, cfg.Origin)
 	platformService.RequireAdminMFA = cfg.Environment == "production"
 	if platformService.RequireAdminMFA && cfg.AdminEmail != "" && cfg.AdminMFASecret == "" {
 		logger.Error("APP_ADMIN_MFA_SECRET is required when an admin email is configured in production")
