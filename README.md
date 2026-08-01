@@ -18,10 +18,10 @@
 ```bash
 cp .env.example .env
 make test
-make dev-api       # http://localhost:8080
-make dev-worker    # http://localhost:8090
-make dev-web       # http://localhost:5173
+make dev            # 一键启动 API、Worker、Web；Ctrl+C 全部停止
 ```
+
+也可直接执行 `./scripts/start-dev.sh`。日志与 PID 写入忽略目录 `tmp/dev`；设置 `OPEN_BROWSER=true` 可在就绪后自动打开浏览器。单独调试某个服务时仍可使用 `make dev-api`、`make dev-worker` 或 `make dev-web`。
 
 不设置 `APP_DATABASE_URL` / `APP_REDIS_URL` 时，API 使用 `apps/api/tmp/data` 下的本地持久化，适合零依赖开发。
 

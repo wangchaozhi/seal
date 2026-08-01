@@ -76,6 +76,10 @@ function transform(layer: SealLayer, baseY = 500) {
   return `translate(${x} ${y}) rotate(${layer.rotation ?? 0}) scale(${layer.scaleX ?? 1} ${layer.scaleY ?? 1}) translate(${-x} ${-y})`;
 }
 
+function reverseText(value: string): string {
+  return Array.from(value).reverse().join("");
+}
+
 export function SealPreview({ config }: Props) {
   const [compare, setCompare] = useState(false);
   const texture = useMemo(() => texturePrimitives(config), [config]);
@@ -110,7 +114,7 @@ export function SealPreview({ config }: Props) {
           <defs>
             <path id="mainArc" d={`M${500 - mainRX} ${500 + (main.offsetY ?? 0)} A${mainRX} ${mainRY} 0 0 1 ${500 + mainRX} ${500 + (main.offsetY ?? 0)}`} />
             <path id="innerArc" d={`M${500 - (inner.radiusX ?? 270)} ${500 + (inner.offsetY ?? 35)} A${inner.radiusX ?? 270} ${inner.radiusY ?? 270} 0 0 1 ${500 + (inner.radiusX ?? 270)} ${500 + (inner.offsetY ?? 35)}`} />
-            <path id="bottomArc" d={`M${500 - (bottom.radiusX ?? 260)} ${500 + (bottom.offsetY ?? 155)} A${bottom.radiusX ?? 260} ${bottom.radiusY ?? 260} 0 0 0 ${500 + (bottom.radiusX ?? 260)} ${500 + (bottom.offsetY ?? 155)}`} />
+            <path id="bottomArc" d={`M${500 + (bottom.radiusX ?? 260)} ${500 + (bottom.offsetY ?? 0)} A${bottom.radiusX ?? 260} ${bottom.radiusY ?? 260} 0 0 1 ${500 - (bottom.radiusX ?? 260)} ${500 + (bottom.offsetY ?? 0)}`} />
             <mask id="wearMask" maskUnits="userSpaceOnUse">
               <rect width="1000" height="1000" fill="white" />
               {texture.dots.map((dot, index) => <circle key={`d-${index}`} cx={dot.x} cy={dot.y} r={dot.radius} fill="black" opacity={dot.opacity} />)}
@@ -139,7 +143,7 @@ export function SealPreview({ config }: Props) {
               ? <text x={500 + (main.offsetX ?? 0)} y={350 + (main.offsetY ?? 0)} textAnchor="middle" style={layerStyle(main)} transform={transform(main, 350)}>{main.content}</text>
               : <text style={layerStyle(main)} transform={transform(main)}><textPath href="#mainArc" startOffset="50%" textAnchor="middle">{main.content}</textPath></text>)}
             {inner.visible && !isSquare && <text style={layerStyle(inner)} transform={transform(inner)}><textPath href="#innerArc" startOffset="50%" textAnchor="middle">{inner.content}</textPath></text>}
-            {bottom.visible && !isSquare && <text style={layerStyle(bottom)} transform={transform(bottom)}><textPath href="#bottomArc" startOffset="50%" textAnchor="middle">{bottom.content}</textPath></text>}
+            {bottom.visible && !isSquare && <text style={layerStyle(bottom)} transform={transform(bottom)}><textPath href="#bottomArc" startOffset="50%" textAnchor="middle">{reverseText(bottom.content ?? "")}</textPath></text>}
             {header1.visible && <text x={500 + (header1.offsetX ?? 0)} y={500 + (header1.offsetY ?? 0)} textAnchor="middle" style={layerStyle(header1)} transform={transform(header1)}>{header1.content}</text>}
             {header2.visible && <text x={500 + (header2.offsetX ?? 0)} y={500 + (header2.offsetY ?? 0)} textAnchor="middle" style={layerStyle(header2)} transform={transform(header2)}>{header2.content}</text>}
           </g>

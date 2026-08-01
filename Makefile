@@ -1,4 +1,7 @@
-.PHONY: test dev-api test-api fmt-api dev-web build-web dev-worker test-worker
+.PHONY: test dev dev-api test-api fmt-api dev-web build-web dev-worker test-worker
+
+dev:
+	./scripts/start-dev.sh
 
 test: test-api test-worker build-web
 

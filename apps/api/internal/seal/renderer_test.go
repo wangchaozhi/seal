@@ -15,7 +15,7 @@ func validConfig() Config {
 			{ID: "border", Kind: "border", Visible: true, Locked: true, ZIndex: 0, ScaleX: 1, ScaleY: 1},
 			{ID: "main-text", Kind: "arcText", Visible: true, ZIndex: 10, Content: "示例科技有限公司", FontID: "system-serif", FontSize: 72, LetterSpacing: 6, ScaleX: 1, ScaleY: 1, OffsetY: 20, RadiusX: 335, RadiusY: 335},
 			{ID: "inner-text", Kind: "arcText", ZIndex: 11, FontSize: 34, ScaleX: 1, ScaleY: 1, OffsetY: 35, RadiusX: 270, RadiusY: 270},
-			{ID: "bottom-text", Kind: "arcText", Visible: true, ZIndex: 12, Content: "合同专用章", FontID: "system-sans", FontSize: 38, LetterSpacing: 4, ScaleX: 1, ScaleY: 1, OffsetY: 155, RadiusX: 260, RadiusY: 260},
+			{ID: "bottom-text", Kind: "arcText", Visible: true, ZIndex: 12, Content: "合同专用章", FontID: "system-sans", FontSize: 38, LetterSpacing: 4, ScaleX: 1, ScaleY: 1, RadiusX: 260, RadiusY: 260},
 			{ID: "center", Kind: "centerText", Visible: true, ZIndex: 20, Content: "★", FontSize: 220, ScaleX: 1, ScaleY: 1},
 		},
 		Texture: TextureConfig{Enabled: true, Type: "ink", Intensity: 34, Density: 42, GrainSize: 6, EdgeWear: 25, ScratchCount: 8, Fade: 22, Seed: 928341, ApplyTo: []string{"border", "text", "center"}},
@@ -49,6 +49,19 @@ func TestRendererEscapesUserText(t *testing.T) {
 	}
 	if bytes.Contains(result, []byte("<script>")) || !bytes.Contains(result, []byte("&lt;script&gt;")) {
 		t.Fatal("user text must be escaped")
+	}
+}
+
+func TestRendererBottomArcKeepsTextUprightAndInsideRing(t *testing.T) {
+	result, err := (Renderer{}).SVG(validConfig(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(result, []byte(`<path id="bottomArc" d="M760.00 500.00 A260.00 260.00 0 0 1 240.00 500.00"/>`)) {
+		t.Fatal("bottom arc must run right-to-left on the lower half")
+	}
+	if !bytes.Contains(result, []byte(`>章用专同合</textPath>`)) {
+		t.Fatal("bottom arc content must be reversed along its right-to-left path")
 	}
 }
 

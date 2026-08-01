@@ -35,7 +35,16 @@ function loadDraft(): SealConfig {
   try {
     const raw = JSON.parse(localStorage.getItem(draftKey) ?? "null") as Record<string, unknown> | null;
     if (!raw) return cloneSealConfig(defaultSealConfig);
-    if (raw.schemaVersion === 2 && Array.isArray(raw.layers)) return raw as unknown as SealConfig;
+    if (raw.schemaVersion === 2 && Array.isArray(raw.layers)) {
+      const config = raw as unknown as SealConfig;
+      const bottom = config.layers.find((layer) => layer.id === layerIds.bottom);
+      // Repair drafts saved with the original bottom-arc default, whose baseline
+      // was shifted beyond the outer ring. User-customized positions are kept.
+      if (bottom?.offsetY === 155 && bottom.radiusX === 260 && bottom.radiusY === 260) {
+        bottom.offsetY = 0;
+      }
+      return config;
+    }
 
     // One-time migration from the original skeleton's schemaVersion 1 draft.
     const legacy = raw as Record<string, any>;
@@ -67,13 +76,14 @@ function templateConfig(id: string): SealConfig {
     next.shape = "ellipse";
     next.border.doubleLine = true;
     next.border.innerRing = true;
-    next = updateLayer(next, layerIds.main, { content: "KALVIN TECHNOLOGY CO., LTD." });
-    next = updateLayer(next, layerIds.inner, { visible: true });
+    next = updateLayer(next, layerIds.main, { content: "KALVIN TECHNOLOGY CO., LTD.", fontSize: 54, letterSpacing: 3 });
+    next = updateLayer(next, layerIds.inner, { visible: true, fontSize: 30, letterSpacing: 2, radiusY: 215 });
+    next = updateLayer(next, layerIds.header1, { visible: false });
   } else if (id === "finance") {
     next = updateLayer(next, layerIds.main, { content: "示例科技有限公司" });
     next = updateLayer(next, layerIds.center, { content: "财", fontSize: 170 });
-    next = updateLayer(next, layerIds.header1, { content: "财务专用章" });
-    next = updateLayer(next, layerIds.header2, { visible: true, content: "内部核算" });
+    next = updateLayer(next, layerIds.header1, { content: "财务专用章", offsetY: 135 });
+    next = updateLayer(next, layerIds.header2, { visible: true, content: "内部核算", offsetY: 195 });
   } else if (id === "contract") {
     next = updateLayer(next, layerIds.main, { content: "示例科技有限公司" });
     next = updateLayer(next, layerIds.center, { content: "合同", fontSize: 150 });

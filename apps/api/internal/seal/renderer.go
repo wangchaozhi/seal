@@ -53,7 +53,8 @@ func (Renderer) SVG(config Config, watermark bool) ([]byte, error) {
 	}
 	fmt.Fprintf(&output, `<path id="mainArc" d="M%.2f %.2f A%.2f %.2f 0 0 1 %.2f %.2f"/>`, 500-mainRX, 500+main.OffsetY, mainRX, mainRY, 500+mainRX, 500+main.OffsetY)
 	fmt.Fprintf(&output, `<path id="innerArc" d="M%.2f %.2f A%.2f %.2f 0 0 1 %.2f %.2f"/>`, 500-inner.RadiusX, 500+inner.OffsetY, inner.RadiusX, inner.RadiusY, 500+inner.RadiusX, 500+inner.OffsetY)
-	fmt.Fprintf(&output, `<path id="bottomArc" d="M%.2f %.2f A%.2f %.2f 0 0 0 %.2f %.2f"/>`, 500-bottom.RadiusX, 500+bottom.OffsetY, bottom.RadiusX, bottom.RadiusY, 500+bottom.RadiusX, 500+bottom.OffsetY)
+	// Traverse the lower arc from right to left so glyphs stay upright.
+	fmt.Fprintf(&output, `<path id="bottomArc" d="M%.2f %.2f A%.2f %.2f 0 0 1 %.2f %.2f"/>`, 500+bottom.RadiusX, 500+bottom.OffsetY, bottom.RadiusX, bottom.RadiusY, 500-bottom.RadiusX, 500+bottom.OffsetY)
 	if config.Texture.Enabled {
 		output.WriteString(`<mask id="wearMask" maskUnits="userSpaceOnUse"><rect width="1000" height="1000" fill="white"/>`)
 		writeTexture(&output, config.Texture)
@@ -150,7 +151,11 @@ func layerTransform(layer Layer, baseY float64) string {
 }
 
 func writeTextLayer(output *bytes.Buffer, shape string, layer Layer) {
-	content := html.EscapeString(layer.Content)
+	content := layer.Content
+	if layer.ID == "bottom-text" && layer.Kind == "arcText" && shape != "square" {
+		content = reverseText(content)
+	}
+	content = html.EscapeString(content)
 	style := fmt.Sprintf(`font-family="%s" font-size="%.2f" letter-spacing="%.2f" font-weight="700"`, fontFamily(layer), layer.FontSize, layer.LetterSpacing)
 	if layer.Kind == "arcText" && shape != "square" {
 		path := "mainArc"
@@ -167,6 +172,14 @@ func writeTextLayer(output *bytes.Buffer, shape string, layer Layer) {
 		baseY = 350
 	}
 	fmt.Fprintf(output, `<text x="%.2f" y="%.2f" text-anchor="middle" %s transform="%s">%s</text>`, 500+layer.OffsetX, baseY+layer.OffsetY, style, layerTransform(layer, baseY), content)
+}
+
+func reverseText(value string) string {
+	runes := []rune(value)
+	for left, right := 0, len(runes)-1; left < right; left, right = left+1, right-1 {
+		runes[left], runes[right] = runes[right], runes[left]
+	}
+	return string(runes)
 }
 
 func writeCenterLayer(output *bytes.Buffer, layer Layer) {
