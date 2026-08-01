@@ -41,6 +41,30 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/User'}
         '401': {$ref: '#/components/responses/Error'}
+  /auth/oauth/providers:
+    get:
+      tags: [Auth]
+      summary: 返回已配置的快捷登录渠道，不暴露 AppID 或密钥
+      responses:
+        '200': {description: 渠道可用性, content: {application/json: {schema: {type: object, required: [qq, wechat, github, google], properties: {qq: {type: boolean}, wechat: {type: boolean}, github: {type: boolean}, google: {type: boolean}}}}}}
+  /auth/oauth/{provider}/start:
+    get:
+      tags: [Auth]
+      summary: 创建短时 OAuth state 并跳转至第三方授权页
+      parameters: [{$ref: '#/components/parameters/OAuthProvider'}]
+      responses:
+        '302': {description: 跳转到第三方授权页}
+        '404': {$ref: '#/components/responses/Error'}
+  /auth/oauth/{provider}/callback:
+    get:
+      tags: [Auth]
+      summary: 校验 state、服务端换取第三方身份并创建 HttpOnly 会话
+      parameters:
+        - {$ref: '#/components/parameters/OAuthProvider'}
+        - {name: code, in: query, required: true, schema: {type: string}}
+        - {name: state, in: query, required: true, schema: {type: string}}
+      responses:
+        '302': {description: 登录完成后跳回 Web Origin}
   /auth/logout:
     post:
       tags: [Auth]
@@ -305,6 +329,7 @@ paths:
 components:
   parameters:
     ID: {in: path, name: id, required: true, schema: {type: string}}
+    OAuthProvider: {in: path, name: provider, required: true, schema: {type: string, enum: [qq, wechat, github, google]}}
   requestBodies:
     Credentials:
       required: true
@@ -327,7 +352,7 @@ components:
       content: {application/json: {schema: {type: object, properties: {user: {$ref: '#/components/schemas/User'}}}}}
   schemas:
     Error: {type: object, properties: {error: {type: object, required: [code, message], properties: {code: {type: string}, message: {type: string}}}}}
-    User: {type: object, required: [id, email, membershipLevel, status, role, createdAt], properties: {id: {type: string}, email: {type: string, format: email}, membershipLevel: {type: string, enum: [free, vip]}, status: {type: string, enum: [active, banned]}, role: {type: string, enum: [user, admin]}, createdAt: {type: string, format: date-time}, vipExpiresAt: {type: string, format: date-time}}}
+    User: {type: object, required: [id, email, membershipLevel, status, role, createdAt], properties: {id: {type: string}, email: {type: string, format: email}, membershipLevel: {type: string, enum: [free, vip]}, status: {type: string, enum: [active, banned]}, role: {type: string, enum: [user, admin]}, authProvider: {type: string, enum: [qq, wechat, github, google]}, displayName: {type: string}, createdAt: {type: string, format: date-time}, vipExpiresAt: {type: string, format: date-time}}}
     Session: {type: object, required: [id, userId, userAgentHash, ipHash, expiresAt, createdAt], properties: {id: {type: string}, userId: {type: string}, userAgentHash: {type: string}, ipHash: {type: string}, expiresAt: {type: string, format: date-time}, createdAt: {type: string, format: date-time}}}
     SealConfigRecord: {type: object, required: [id, userId, name, config, createdAt, updatedAt], properties: {id: {type: string}, userId: {type: string}, name: {type: string}, config: {$ref: './seal-config.schema.json'}, createdAt: {type: string, format: date-time}, updatedAt: {type: string, format: date-time}}}
     Generation: {type: object, required: [id, userId, config, rendererVersion, format, status, watermark, createdAt], properties: {id: {type: string}, userId: {type: string}, config: {$ref: './seal-config.schema.json'}, rendererVersion: {type: string}, format: {type: string, enum: [svg, png]}, status: {type: string, enum: [queued, rendering, succeeded, failed]}, watermark: {type: boolean}, accessRevoked: {type: boolean}, failureReason: {type: string}, createdAt: {type: string, format: date-time}, finishedAt: {type: string, format: date-time}}}

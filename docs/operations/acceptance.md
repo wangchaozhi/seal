@@ -20,6 +20,7 @@ BASE_URL=http://localhost:8080 ./scripts/smoke-test.sh
 - 支付回调的签名、金额和幂等测试通过；生产支付模拟接口为 404。
 - 生成、上传、订单、令牌、登录/注册的路由限流生效且 429 包含 `Retry-After`。
 - 管理员要求 TOTP，后台变更、退款、发票、封禁均写审计。
+- QQ/微信/GitHub/Google OAuth 回调严格校验一次性 state；GitHub/Google 同时使用 PKCE S256；Client Secret 和 access token 不进入前端、日志或持久化用户记录。
 - CSP 强制策略启用并能上报；Cookie 为 HttpOnly/SameSite，HTTPS 下为 Secure；跨站修改被 Origin Guard 拒绝。
 
 ## 运维检查

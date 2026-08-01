@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { EditorPanel } from "./components/EditorPanel";
 import { CloudPanel } from "./components/CloudPanel";
 import { AdminPanel } from "./components/AdminPanel";
+import { AuthBar } from "./components/AuthBar";
 import { SealPreview } from "./components/SealPreview";
 import { TexturePanel } from "./components/TexturePanel";
 import { useSealHistory } from "./hooks/useSealHistory";
@@ -238,10 +239,17 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <header className="topbar"><div className="brand"><span>印</span><div>印章生成平台 <small>V2</small></div></div><div className="top-actions"><span className="legal-pill">仅供合法用途</span><span className="top-status">{status}</span></div></header>
+      <header className="topbar"><div className="brand"><span>印</span><div>印章生成平台 <small>V2</small></div></div><div className="top-actions"><span className="legal-pill">仅供合法用途</span><span className="top-status">{status}</span><AuthBar /></div></header>
       <main className="workspace">
         {warning && <div className="security-warning">{warning}<button type="button" onClick={() => setWarning("")}>关闭</button></div>}
         <div className="page-heading"><div><h1>在线印章编辑器</h1><p>SVG 实时预览、确定性纹理、配置协议 v2 与服务端安全导出。</p></div><div className="history-toolbar" aria-label="编辑历史"><button type="button" onClick={() => { undo(); setStatus("已撤销，正在保存…"); }} disabled={!canUndo}>撤销</button><button type="button" onClick={() => { redo(); setStatus("已重做，正在保存…"); }} disabled={!canRedo}>重做</button><span>最多 40 步</span></div></div>
+
+        <section className="panel library-panel library-panel-top"><div className="panel-heading"><h2>选择模板或我的配置</h2><small>选好模板后再开始编辑，加载操作可撤销</small></div>
+          <div className="template-toolbar"><input type="search" value={templateQuery} placeholder="搜索模板或标签" aria-label="搜索模板" onChange={(event) => setTemplateQuery(event.target.value)} /><div role="group" aria-label="模板分类">{["全部", "企业", "财务", "个人", "创意", "收藏"].map((category) => <button type="button" className={templateCategory === category ? "active" : ""} key={category} onClick={() => setTemplateCategory(category)}>{category}</button>)}</div></div>
+          <div className="template-grid">{visibleTemplates.length === 0 ? <p>没有匹配的模板。</p> : visibleTemplates.map((template) => <article className="template-card" key={template.id}><button type="button" className="template-load" onClick={() => { changeConfig(templateConfig(template.id)); setStatus(`已加载模板：${template.name}`); }}><span className="template-preview" aria-hidden="true">印</span><b>{template.name}</b><span>{template.description}</span><small>{template.category} · {template.tags.join(" / ")}</small></button><button type="button" className="template-favorite" aria-label={`${favoriteTemplates.includes(template.id) ? "取消收藏" : "收藏"}${template.name}`} onClick={() => toggleFavoriteTemplate(template.id)}>{favoriteTemplates.includes(template.id) ? "★ 已收藏" : "☆ 收藏"}</button></article>)}</div>
+          <div className="save-row"><input value={configName} onChange={(event) => setConfigName(event.target.value)} maxLength={100} placeholder="输入配置名称" /><button type="button" onClick={saveNamedConfig}>保存当前配置</button></div>
+          <div className="saved-list">{savedConfigs.length === 0 ? <p>暂无已保存配置。</p> : savedConfigs.map((item) => <div key={item.id}><span><b>{item.name}</b><small>{new Date(item.updatedAt).toLocaleString()}</small></span><span><button type="button" onClick={() => changeConfig(cloneSealConfig(item.config))}>加载</button><button type="button" onClick={() => copySavedConfig(item)}>复制</button><button type="button" onClick={() => renameSavedConfig(item)}>重命名</button><button type="button" className="danger" onClick={() => removeSavedConfig(item.id)}>删除</button></span></div>)}</div>
+        </section>
 
         <div className="editor-grid"><div className="controls">
           <EditorPanel config={config} onChange={changeConfig} onInteractionEnd={endHistoryGroup} />
@@ -253,13 +261,6 @@ export default function App() {
             <button type="button" onClick={() => { endHistoryGroup(); updateConfig(cloneSealConfig(defaultSealConfig)); setStatus("已恢复默认，正在保存…"); }}>恢复默认</button>
           </section>
         </div><SealPreview config={config} /></div>
-
-        <section className="panel library-panel"><div className="panel-heading"><h2>模板与我的配置</h2><small>模板加载与历史恢复都会创建撤销点</small></div>
-          <div className="template-toolbar"><input type="search" value={templateQuery} placeholder="搜索模板或标签" aria-label="搜索模板" onChange={(event) => setTemplateQuery(event.target.value)} /><div role="group" aria-label="模板分类">{["全部", "企业", "财务", "个人", "创意", "收藏"].map((category) => <button type="button" className={templateCategory === category ? "active" : ""} key={category} onClick={() => setTemplateCategory(category)}>{category}</button>)}</div></div>
-          <div className="template-grid">{visibleTemplates.length === 0 ? <p>没有匹配的模板。</p> : visibleTemplates.map((template) => <article className="template-card" key={template.id}><button type="button" className="template-load" onClick={() => { changeConfig(templateConfig(template.id)); setStatus(`已加载模板：${template.name}`); }}><span className="template-preview" aria-hidden="true">印</span><b>{template.name}</b><span>{template.description}</span><small>{template.category} · {template.tags.join(" / ")}</small></button><button type="button" className="template-favorite" aria-label={`${favoriteTemplates.includes(template.id) ? "取消收藏" : "收藏"}${template.name}`} onClick={() => toggleFavoriteTemplate(template.id)}>{favoriteTemplates.includes(template.id) ? "★ 已收藏" : "☆ 收藏"}</button></article>)}</div>
-          <div className="save-row"><input value={configName} onChange={(event) => setConfigName(event.target.value)} maxLength={100} placeholder="输入配置名称" /><button type="button" onClick={saveNamedConfig}>保存当前配置</button></div>
-          <div className="saved-list">{savedConfigs.length === 0 ? <p>暂无已保存配置。</p> : savedConfigs.map((item) => <div key={item.id}><span><b>{item.name}</b><small>{new Date(item.updatedAt).toLocaleString()}</small></span><span><button type="button" onClick={() => changeConfig(cloneSealConfig(item.config))}>加载</button><button type="button" onClick={() => copySavedConfig(item)}>复制</button><button type="button" onClick={() => renameSavedConfig(item)}>重命名</button><button type="button" className="danger" onClick={() => removeSavedConfig(item.id)}>删除</button></span></div>)}</div>
-        </section>
 
         <section className="panel history-panel"><div className="panel-heading"><h2>生成历史</h2><button type="button" disabled={!generationHistory.length} onClick={() => { setGenerationHistory([]); localStorage.removeItem(generationHistoryKey); }}>清空</button></div>
           <div className="history-list">{generationHistory.length === 0 ? <p>下载预览或服务端文件后会记录在这里。</p> : generationHistory.map((item) => <button type="button" key={item.id} onClick={() => changeConfig(cloneSealConfig(item.config))}><span className="history-symbol">{item.config.layers.find((layer) => layer.id === layerIds.center)?.content || "印"}</span><span><b>{item.name}</b><small>{item.format} · {new Date(item.createdAt).toLocaleString()}</small></span></button>)}</div>

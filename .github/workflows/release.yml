@@ -1,0 +1,179 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify, package and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag and branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=${GITHUB_REF_NAME}
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must use SemVer, for example v2.1.0 or v2.1.0-rc.1"
+            exit 1
+          fi
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Release tags must point to a commit contained in main"
+            exit 1
+          fi
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.23.x'
+          cache-dependency-path: apps/api/go.sum
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            apps/web/package-lock.json
+            apps/worker/package-lock.json
+
+      - name: Verify Go API
+        working-directory: apps/api
+        run: |
+          go mod verify
+          go test ./...
+          go test -race ./internal/platform ./internal/storage ./internal/httpx
+          go vet ./...
+
+      - name: Verify and build Web
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+          npm audit --omit=dev --audit-level=high
+          if find dist -type f \( -name '*.map' -o -iname '*.woff*' -o -iname '*.ttf' -o -iname '*.otf' \) | grep -q .; then
+            echo 'Public source map or font file found in Web build'
+            exit 1
+          fi
+
+      - name: Verify Render Worker
+        working-directory: apps/worker
+        run: |
+          npm ci
+          npm test
+          npm audit --omit=dev --audit-level=high
+
+      - name: Validate deployment contracts
+        run: |
+          docker compose config --quiet
+          sh -n scripts/start-dev.sh
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for path in Path('docs/contracts').glob('*.json'):
+              json.loads(path.read_text())
+              print(f'validated {path}')
+          PY
+
+      - name: Build release archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=${GITHUB_REF_NAME}
+          mkdir -p artifacts
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            os=${target%/*}
+            arch=${target#*/}
+            output="artifacts/seal-api-${tag}-${os}-${arch}"
+            (cd apps/api && CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags='-s -w' -o "../../$output" ./cmd/server)
+          done
+          tar -C apps/web/dist -czf "artifacts/seal-web-${tag}.tar.gz" .
+          tar -czf "artifacts/seal-deployment-${tag}.tar.gz" docker-compose.yml .env.example scripts/smoke-test.sh docs/operations
+          (cd artifacts && sha256sum * > SHA256SUMS)
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-assets-${{ github.ref_name }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attest release archives
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: artifacts/*
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish API image
+        uses: docker/build-push-action@v7
+        with:
+          context: apps/api
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/${{ github.repository_owner }}/seal-api:${{ github.ref_name }}
+          cache-from: type=gha,scope=release-api
+          cache-to: type=gha,mode=max,scope=release-api
+          provenance: mode=max
+          sbom: true
+
+      - name: Publish Web image
+        uses: docker/build-push-action@v7
+        with:
+          context: apps/web
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/${{ github.repository_owner }}/seal-web:${{ github.ref_name }}
+          cache-from: type=gha,scope=release-web
+          cache-to: type=gha,mode=max,scope=release-web
+          provenance: mode=max
+          sbom: true
+
+      - name: Publish Worker image
+        uses: docker/build-push-action@v7
+        with:
+          context: apps/worker
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/${{ github.repository_owner }}/seal-worker:${{ github.ref_name }}
+          cache-from: type=gha,scope=release-worker
+          cache-to: type=gha,mode=max,scope=release-worker
+          provenance: mode=max
+          sbom: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=${GITHUB_REF_NAME}
+          flags=()
+          if [[ "$tag" == *-* ]]; then flags+=(--prerelease); fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" artifacts/* --clobber
+          else
+            gh release create "$tag" artifacts/* --verify-tag --generate-notes --title "Seal Platform ${tag}" "${flags[@]}"
+          fi

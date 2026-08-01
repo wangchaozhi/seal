@@ -41,6 +41,12 @@ type Service struct {
 	AdminEmail             string
 	AdminMFASecret         string
 	RequireAdminMFA        bool
+	Origin                 string
+	QQOAuth                OAuthProviderConfig
+	WeChatOAuth            OAuthProviderConfig
+	GitHubOAuth            OAuthProviderConfig
+	GoogleOAuth            OAuthProviderConfig
+	OAuthHTTPClient        *http.Client
 	queue                  GenerationQueue
 }
 
@@ -49,7 +55,7 @@ func NewService(store *StateStore, objects *storage.Local, logger *slog.Logger, 
 }
 
 func NewServiceWithQueue(store *StateStore, objects *storage.Local, logger *slog.Logger, maxBodyBytes int64, queue GenerationQueue) *Service {
-	service := &Service{Store: store, Objects: objects, Renderer: seal.Renderer{}, Logger: logger, MaxBodyBytes: maxBodyBytes, TokenTTL: 120 * time.Second, SessionTTL: 24 * time.Hour, queue: queue}
+	service := &Service{Store: store, Objects: objects, Renderer: seal.Renderer{}, Logger: logger, MaxBodyBytes: maxBodyBytes, TokenTTL: 120 * time.Second, SessionTTL: 24 * time.Hour, Origin: "http://localhost:5173", queue: queue}
 	go service.worker()
 	for _, generation := range store.AllGenerations() {
 		if generation.Status == "queued" || generation.Status == "rendering" {
@@ -65,6 +71,9 @@ func NewServiceWithQueue(store *StateStore, objects *storage.Local, logger *slog
 func (service *Service) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/auth/login", service.login)
 	mux.HandleFunc("POST /api/v1/auth/register", service.register)
+	mux.HandleFunc("GET /api/v1/auth/oauth/providers", service.oauthProviders)
+	mux.HandleFunc("GET /api/v1/auth/oauth/{provider}/start", service.oauthStart)
+	mux.HandleFunc("GET /api/v1/auth/oauth/{provider}/callback", service.oauthCallback)
 	mux.HandleFunc("POST /api/v1/auth/logout", service.logout)
 	mux.HandleFunc("GET /api/v1/auth/me", service.me)
 	mux.HandleFunc("GET /api/v1/auth/sessions", service.listSessions)
@@ -196,10 +205,12 @@ type userView struct {
 	CreatedAt       time.Time  `json:"createdAt"`
 	VIPExpiresAt    *time.Time `json:"vipExpiresAt,omitempty"`
 	Role            string     `json:"role"`
+	AuthProvider    string     `json:"authProvider,omitempty"`
+	DisplayName     string     `json:"displayName,omitempty"`
 }
 
 func publicUser(user User) userView {
-	return userView{ID: user.ID, Email: user.Email, MembershipLevel: user.MembershipLevel, Status: user.Status, CreatedAt: user.CreatedAt, VIPExpiresAt: user.VIPExpiresAt, Role: user.Role}
+	return userView{ID: user.ID, Email: user.Email, MembershipLevel: user.MembershipLevel, Status: user.Status, CreatedAt: user.CreatedAt, VIPExpiresAt: user.VIPExpiresAt, Role: user.Role, AuthProvider: user.AuthProvider, DisplayName: user.DisplayName}
 }
 func normalizeEmail(value string) (string, error) {
 	email := strings.ToLower(strings.TrimSpace(value))
