@@ -1,0 +1,10 @@
+# Deprecated compatibility pointer.
+# The implementation and planned contract are now unified in openapi.yaml.
+openapi: 3.1.0
+info:
+  title: Seal Platform API compatibility pointer
+  version: 2.0.0
+paths: {}
+externalDocs:
+  description: Complete implemented API
+  url: ./openapi.yaml

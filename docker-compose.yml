@@ -1,0 +1,92 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: seal_platform
+      POSTGRES_USER: seal_platform
+      POSTGRES_PASSWORD: local-development-only
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seal_platform -d seal_platform"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    image: postgres:17-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: local-development-only
+    volumes:
+      - ./apps/api/migrations:/migrations:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["for f in /migrations/*.sql; do psql -h postgres -U seal_platform -d seal_platform -v ON_ERROR_STOP=1 -f $$f; done"]
+    restart: "no"
+
+  api:
+    build:
+      context: ./apps/api
+    environment:
+      APP_ADDR: ":8080"
+      APP_ORIGIN: "http://localhost:8088"
+      APP_ENV: "${APP_ENV:-development}"
+      APP_RATE_LIMIT_PER_MINUTE: "120"
+      APP_DATA_DIR: "/var/lib/seal-platform"
+      APP_DOWNLOAD_TOKEN_TTL_SECONDS: "120"
+      APP_RASTERIZER_URL: "http://worker:8090"
+      APP_DATABASE_URL: "postgres://seal_platform:local-development-only@postgres:5432/seal_platform?sslmode=disable"
+      APP_REDIS_URL: "redis://redis:6379/0"
+      APP_PAYMENT_CALLBACK_SECRET: "${APP_PAYMENT_CALLBACK_SECRET:-local-compose-payment-secret}"
+      APP_ADMIN_EMAIL: "${APP_ADMIN_EMAIL:-admin@example.com}"
+      APP_ADMIN_MFA_SECRET: "${APP_ADMIN_MFA_SECRET:-}"
+      APP_ENABLE_PAYMENT_SIMULATION: "${APP_ENABLE_PAYMENT_SIMULATION:-true}"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    volumes:
+      - seal-data:/var/lib/seal-platform
+    depends_on:
+      worker:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./apps/worker
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8090/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build:
+      context: ./apps/web
+    depends_on:
+      - api
+    ports:
+      - "8088:80"
+    restart: unless-stopped
+
+volumes:
+  seal-data:
+  postgres-data:
+  redis-data:

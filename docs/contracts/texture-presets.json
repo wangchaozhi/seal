@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "presets": [
+    {"id":"off","name":"关闭","enabled":false,"type":"ink","intensity":0,"density":0,"grainSize":5,"edgeWear":0,"scratchCount":0,"fade":0},
+    {"id":"light","name":"轻微","enabled":true,"type":"grain","intensity":18,"density":25,"grainSize":4,"edgeWear":8,"scratchCount":2,"fade":12},
+    {"id":"natural","name":"自然","enabled":true,"type":"ink","intensity":35,"density":42,"grainSize":6,"edgeWear":24,"scratchCount":8,"fade":22},
+    {"id":"aged","name":"陈旧","enabled":true,"type":"paper","intensity":55,"density":60,"grainSize":9,"edgeWear":45,"scratchCount":14,"fade":35},
+    {"id":"heavy","name":"重度","enabled":true,"type":"scratch","intensity":76,"density":78,"grainSize":13,"edgeWear":68,"scratchCount":28,"fade":48}
+  ]
+}

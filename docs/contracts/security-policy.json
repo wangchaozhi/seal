@@ -1,0 +1,44 @@
+{
+  "version": "2.0.0",
+  "principle": "Browser code is never a security boundary",
+  "frontendDeterrence": {
+    "disablePublicSourceMaps": true,
+    "minify": true,
+    "selectiveObfuscation": false,
+    "contextMenuNotice": true,
+    "devShortcutNotice": true,
+    "consoleLegalNotice": true,
+    "neverUseInfiniteDebugger": true,
+    "neverFreezeOrClosePage": true
+  },
+  "serverEnforcement": {
+    "premiumFontsServerOnly": true,
+    "premiumTexturesServerOnly": true,
+    "watermarkPolicyServerCalculated": true,
+    "ignoreClientPaidOrVipFields": true,
+    "privateObjectStorage": true,
+    "downloadTokenTtlSeconds": 120,
+    "downloadTokenSingleUse": true,
+    "authorizeEveryObjectAccess": true
+  },
+  "rateLimits": {
+    "anonymousPreviewPerMinute": 10,
+    "authenticatedPreviewPerMinute": 60,
+    "hdExportPerMinute": 3,
+    "uploadPerMinute": 10,
+    "orderCreatePerMinute": 5
+  },
+  "upload": {
+    "allowedMime": ["image/png", "image/jpeg", "image/webp"],
+    "maxBytes": 5242880,
+    "maxPixels": 25000000,
+    "svgUploadEnabled": false,
+    "decodeAndReencode": true
+  },
+  "audit": {
+    "generationEventsDays": 180,
+    "securityEventsDays": 365,
+    "logTokenIssueAndConsume": true,
+    "logPaymentCallbackIdempotency": true
+  }
+}

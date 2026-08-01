@@ -1,0 +1,339 @@
+openapi: 3.1.0
+info:
+  title: Seal Platform API
+  version: 2.0.0
+  description: 印章平台 V2 已实现 HTTP 契约。除健康检查、同步预览、资源目录、支付回调和 CSP 报告外均使用 HttpOnly Cookie 会话。
+servers:
+  - url: /api/v1
+tags:
+  - {name: Auth}
+  - {name: Configs}
+  - {name: Generations}
+  - {name: Commerce}
+  - {name: Resources}
+  - {name: Admin}
+paths:
+  /health:
+    get:
+      summary: 健康检查
+      responses:
+        '200': {description: 服务正常, content: {application/json: {schema: {type: object}}}}
+  /seals/render:
+    post:
+      summary: 同步渲染 SVG
+      requestBody: {$ref: '#/components/requestBodies/SealConfig'}
+      responses:
+        '200': {description: SVG, content: {image/svg+xml: {schema: {type: string}}}}
+        '422': {$ref: '#/components/responses/Error'}
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: 注册并创建持久会话
+      requestBody: {$ref: '#/components/requestBodies/Credentials'}
+      responses:
+        '201': {$ref: '#/components/responses/User'}
+        '409': {$ref: '#/components/responses/Error'}
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: 登录；管理员生产环境必须提交 TOTP
+      requestBody: {$ref: '#/components/requestBodies/Credentials'}
+      responses:
+        '200': {$ref: '#/components/responses/User'}
+        '401': {$ref: '#/components/responses/Error'}
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: 吊销当前会话
+      responses:
+        '204': {description: 已退出}
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: 当前用户
+      responses:
+        '200': {$ref: '#/components/responses/User'}
+        '401': {$ref: '#/components/responses/Error'}
+  /auth/sessions:
+    get:
+      tags: [Auth]
+      summary: 活跃设备会话（不返回令牌散列）
+      responses:
+        '200': {description: 会话列表, content: {application/json: {schema: {type: object, properties: {items: {type: array, items: {$ref: '#/components/schemas/Session'}}}}}}}
+  /auth/sessions/{id}:
+    delete:
+      tags: [Auth]
+      summary: 吊销本人设备会话
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses:
+        '204': {description: 已吊销}
+        '404': {$ref: '#/components/responses/Error'}
+  /seal-configs:
+    get:
+      tags: [Configs]
+      summary: 云端配置列表
+      responses:
+        '200': {description: 配置列表, content: {application/json: {schema: {type: object, properties: {items: {type: array, items: {$ref: '#/components/schemas/SealConfigRecord'}}}}}}}
+    post:
+      tags: [Configs]
+      summary: 创建云端配置
+      requestBody: {$ref: '#/components/requestBodies/NamedConfig'}
+      responses:
+        '201': {description: 已创建, content: {application/json: {schema: {$ref: '#/components/schemas/SealConfigRecord'}}}}
+  /seal-configs/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      tags: [Configs]
+      summary: 获取本人配置
+      responses:
+        '200': {description: 配置, content: {application/json: {schema: {$ref: '#/components/schemas/SealConfigRecord'}}}}
+        '404': {$ref: '#/components/responses/Error'}
+    put:
+      tags: [Configs]
+      summary: 更新本人配置
+      requestBody: {$ref: '#/components/requestBodies/NamedConfig'}
+      responses:
+        '200': {description: 已更新, content: {application/json: {schema: {$ref: '#/components/schemas/SealConfigRecord'}}}}
+    delete:
+      tags: [Configs]
+      summary: 删除本人配置
+      responses:
+        '204': {description: 已删除}
+  /uploads/images:
+    post:
+      tags: [Resources]
+      summary: 上传并安全重编码中心图片
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: {type: object, required: [file], properties: {file: {type: string, format: binary}}}
+      responses:
+        '201': {description: PNG 素材, content: {application/json: {schema: {type: object, properties: {asset: {$ref: '#/components/schemas/Asset'}, url: {type: string}}}}}}
+        '422': {$ref: '#/components/responses/Error'}
+  /assets/{id}:
+    get:
+      tags: [Resources]
+      summary: 读取本人私有素材
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses:
+        '200': {description: PNG, content: {image/png: {schema: {type: string, format: binary}}}}
+        '404': {$ref: '#/components/responses/Error'}
+  /resources:
+    get:
+      tags: [Resources]
+      summary: 公共资源目录；非 VIP 不返回 VIP 模板配置
+      parameters:
+        - {in: query, name: type, schema: {type: string, enum: [template, font, texture]}}
+      responses:
+        '200': {description: 资源列表, content: {application/json: {schema: {type: object, properties: {items: {type: array, items: {$ref: '#/components/schemas/Resource'}}}}}}}
+  /generations:
+    get:
+      tags: [Generations]
+      summary: 本人生成历史
+      responses:
+        '200': {description: 任务列表, content: {application/json: {schema: {type: object, properties: {items: {type: array, items: {$ref: '#/components/schemas/Generation'}}}}}}}
+    post:
+      tags: [Generations]
+      summary: 创建幂等高清任务；服务端重算尺寸与水印
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [config, format], properties: {format: {type: string, enum: [svg, png]}, config: {$ref: './seal-config.schema.json'}}}
+      responses:
+        '202': {description: 已排队, content: {application/json: {schema: {$ref: '#/components/schemas/Generation'}}}}
+        '429': {$ref: '#/components/responses/Error'}
+  /generations/{id}:
+    get:
+      tags: [Generations]
+      summary: 查询本人任务
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses:
+        '200': {description: 任务, content: {application/json: {schema: {$ref: '#/components/schemas/Generation'}}}}
+        '404': {$ref: '#/components/responses/Error'}
+  /generations/{id}/download-token:
+    post:
+      tags: [Generations]
+      summary: 签发 120 秒、绑定用户与任务的单次令牌
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses:
+        '200': {description: 下载令牌, content: {application/json: {schema: {type: object, required: [token, expiresAt, downloadUrl], properties: {token: {type: string}, expiresAt: {type: string, format: date-time}, downloadUrl: {type: string}}}}}}
+        '403': {$ref: '#/components/responses/Error'}
+  /generations/{id}/retry:
+    post:
+      tags: [Generations]
+      summary: 幂等重试本人失败任务，不重复扣费
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses:
+        '202': {description: 已重新排队, content: {application/json: {schema: {$ref: '#/components/schemas/Generation'}}}}
+        '409': {$ref: '#/components/responses/Error'}
+  /downloads/{token}:
+    get:
+      tags: [Generations]
+      summary: 原子消费下载令牌
+      parameters: [{in: path, name: token, required: true, schema: {type: string}}]
+      responses:
+        '200': {description: 私有生成文件, content: {image/svg+xml: {schema: {type: string}}, image/png: {schema: {type: string, format: binary}}}}
+        '410': {$ref: '#/components/responses/Error'}
+  /orders:
+    get:
+      tags: [Commerce]
+      summary: 本人订单
+      responses:
+        '200': {description: 订单列表, content: {application/json: {schema: {type: object, properties: {items: {type: array, items: {$ref: '#/components/schemas/Order'}}}}}}}
+    post:
+      tags: [Commerce]
+      summary: 按服务端固定商品价格创建订单
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [product], properties: {product: {type: string, enum: [single_export, vip_monthly]}, generationId: {type: string}}}}}
+      responses:
+        '201': {description: 订单, content: {application/json: {schema: {$ref: '#/components/schemas/Order'}}}}
+  /orders/{id}:
+    get:
+      tags: [Commerce]
+      summary: 本人订单详情
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses:
+        '200': {description: 订单, content: {application/json: {schema: {$ref: '#/components/schemas/Order'}}}}
+  /orders/{id}/refund:
+    post:
+      tags: [Commerce]
+      summary: 申请退款
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [reason], properties: {reason: {type: string, minLength: 2, maxLength: 300}}}}}}
+      responses:
+        '201': {description: 退款申请, content: {application/json: {schema: {$ref: '#/components/schemas/Refund'}}}}
+  /orders/{id}/invoice:
+    post:
+      tags: [Commerce]
+      summary: 申请发票
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [title, email], properties: {title: {type: string}, taxNumber: {type: string}, email: {type: string, format: email}}}}}}
+      responses:
+        '201': {description: 发票申请, content: {application/json: {schema: {$ref: '#/components/schemas/Invoice'}}}}
+  /orders/{id}/simulate-payment:
+    post:
+      tags: [Commerce]
+      summary: 仅开发环境模拟支付；生产环境固定返回 404
+      x-development-only: true
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses:
+        '200': {description: 模拟结算后的订单, content: {application/json: {schema: {$ref: '#/components/schemas/Order'}}}}
+        '404': {$ref: '#/components/responses/Error'}
+  /refunds:
+    get:
+      tags: [Commerce]
+      summary: 本人退款申请
+      responses:
+        '200': {description: 列表}
+  /invoices:
+    get:
+      tags: [Commerce]
+      summary: 本人发票申请
+      responses:
+        '200': {description: 列表}
+  /payments/callback:
+    post:
+      tags: [Commerce]
+      summary: HMAC 支付回调；校验签名、金额并幂等结算
+      parameters: [{in: header, name: X-Payment-Signature, required: true, schema: {type: string}}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [orderNo, amountCents, status, transactionId]}}}}
+      responses:
+        '200': {description: 已处理}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /security/csp-report:
+    post:
+      summary: 接收最多 64 KiB CSP 报告并写审计
+      requestBody: {required: true, content: {application/csp-report: {schema: {type: object}}, application/json: {schema: {type: object}}}}
+      responses:
+        '204': {description: 已接收}
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: 用户列表（管理员 + MFA 会话）
+      responses: {'200': {description: 用户列表}, '403': {$ref: '#/components/responses/Error'}}
+  /admin/users/{id}:
+    put:
+      tags: [Admin]
+      summary: 封禁/解封和调整会员
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {status: {type: string, enum: [active, banned]}, membershipLevel: {type: string, enum: [free, vip]}}}}}}
+      responses: {'200': {description: 已更新}}
+  /admin/orders:
+    get: {tags: [Admin], summary: 全部订单, responses: {'200': {description: 列表}}}
+  /admin/generations:
+    get: {tags: [Admin], summary: 全部生成任务, responses: {'200': {description: 列表}}}
+  /admin/generations/{id}/retry:
+    post: {tags: [Admin], summary: 管理员重试失败任务, parameters: [{$ref: '#/components/parameters/ID'}], responses: {'202': {description: 已重新排队}}}
+  /admin/audit-events:
+    get: {tags: [Admin], summary: 最近审计事件, responses: {'200': {description: 列表}}}
+  /admin/refunds:
+    get: {tags: [Admin], summary: 全部退款申请, responses: {'200': {description: 列表}}}
+  /admin/refunds/{id}:
+    put:
+      tags: [Admin]
+      summary: 批准或拒绝退款；批准后撤销未消费令牌与导出权益
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [status], properties: {status: {type: string, enum: [approved, rejected]}}}}}}
+      responses: {'200': {description: 已处理}}
+  /admin/invoices:
+    get: {tags: [Admin], summary: 全部发票申请, responses: {'200': {description: 列表}}}
+  /admin/invoices/{id}:
+    put: {tags: [Admin], summary: 标记发票已开具, parameters: [{$ref: '#/components/parameters/ID'}], responses: {'200': {description: 已开具}}}
+  /admin/resources:
+    get: {tags: [Admin], summary: 管理资源列表, responses: {'200': {description: 列表}}}
+    post:
+      tags: [Admin]
+      summary: 新建模板/字体/纹理版本
+      requestBody: {$ref: '#/components/requestBodies/Resource'}
+      responses: {'201': {description: 已创建}}
+  /admin/resources/{id}:
+    put:
+      tags: [Admin]
+      summary: 更新资源版本与授权
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      requestBody: {$ref: '#/components/requestBodies/Resource'}
+      responses: {'200': {description: 已更新}}
+    delete:
+      tags: [Admin]
+      summary: 删除资源
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses: {'204': {description: 已删除}}
+components:
+  parameters:
+    ID: {in: path, name: id, required: true, schema: {type: string}}
+  requestBodies:
+    Credentials:
+      required: true
+      content: {application/json: {schema: {type: object, required: [email, password], properties: {email: {type: string, format: email}, password: {type: string, minLength: 10, maxLength: 128}, mfaCode: {type: string, pattern: '^[0-9]{6}$'}}}}}
+    SealConfig:
+      required: true
+      content: {application/json: {schema: {$ref: './seal-config.schema.json'}}}
+    NamedConfig:
+      required: true
+      content: {application/json: {schema: {type: object, required: [name, config], properties: {name: {type: string, minLength: 1, maxLength: 100}, config: {$ref: './seal-config.schema.json'}}}}}
+    Resource:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/ResourceInput'}}}
+  responses:
+    Error:
+      description: 结构化错误
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    User:
+      description: 公共用户视图（永不返回 passwordHash）
+      content: {application/json: {schema: {type: object, properties: {user: {$ref: '#/components/schemas/User'}}}}}
+  schemas:
+    Error: {type: object, properties: {error: {type: object, required: [code, message], properties: {code: {type: string}, message: {type: string}}}}}
+    User: {type: object, required: [id, email, membershipLevel, status, role, createdAt], properties: {id: {type: string}, email: {type: string, format: email}, membershipLevel: {type: string, enum: [free, vip]}, status: {type: string, enum: [active, banned]}, role: {type: string, enum: [user, admin]}, createdAt: {type: string, format: date-time}, vipExpiresAt: {type: string, format: date-time}}}
+    Session: {type: object, required: [id, userId, userAgentHash, ipHash, expiresAt, createdAt], properties: {id: {type: string}, userId: {type: string}, userAgentHash: {type: string}, ipHash: {type: string}, expiresAt: {type: string, format: date-time}, createdAt: {type: string, format: date-time}}}
+    SealConfigRecord: {type: object, required: [id, userId, name, config, createdAt, updatedAt], properties: {id: {type: string}, userId: {type: string}, name: {type: string}, config: {$ref: './seal-config.schema.json'}, createdAt: {type: string, format: date-time}, updatedAt: {type: string, format: date-time}}}
+    Generation: {type: object, required: [id, userId, config, rendererVersion, format, status, watermark, createdAt], properties: {id: {type: string}, userId: {type: string}, config: {$ref: './seal-config.schema.json'}, rendererVersion: {type: string}, format: {type: string, enum: [svg, png]}, status: {type: string, enum: [queued, rendering, succeeded, failed]}, watermark: {type: boolean}, accessRevoked: {type: boolean}, failureReason: {type: string}, createdAt: {type: string, format: date-time}, finishedAt: {type: string, format: date-time}}}
+    Order: {type: object, required: [id, orderNo, userId, product, amountCents, status, createdAt], properties: {id: {type: string}, orderNo: {type: string}, userId: {type: string}, generationId: {type: string}, product: {type: string, enum: [single_export, vip_monthly]}, amountCents: {type: integer}, status: {type: string, enum: [pending, paid, refunded]}, createdAt: {type: string, format: date-time}, paidAt: {type: string, format: date-time}}}
+    Asset: {type: object, required: [id, userId, mime, width, height, sha256, createdAt], properties: {id: {type: string}, userId: {type: string}, mime: {const: image/png}, width: {type: integer}, height: {type: integer}, sha256: {type: string}, createdAt: {type: string, format: date-time}}}
+    Refund: {type: object, required: [id, orderId, userId, reason, status, createdAt, updatedAt], properties: {id: {type: string}, orderId: {type: string}, userId: {type: string}, reason: {type: string}, status: {type: string, enum: [pending, approved, rejected]}, createdAt: {type: string, format: date-time}, updatedAt: {type: string, format: date-time}}}
+    Invoice: {type: object, required: [id, orderId, userId, title, email, status, createdAt, updatedAt], properties: {id: {type: string}, orderId: {type: string}, userId: {type: string}, title: {type: string}, taxNumber: {type: string}, email: {type: string, format: email}, status: {type: string, enum: [requested, issued]}, createdAt: {type: string, format: date-time}, updatedAt: {type: string, format: date-time}}}
+    ResourceInput: {type: object, required: [type, key, name, version, licenseScope, vipOnly, exportAllowed, status], properties: {type: {type: string, enum: [template, font, texture]}, key: {type: string}, name: {type: string}, version: {type: string}, licenseScope: {type: string}, vipOnly: {type: boolean}, exportAllowed: {type: boolean}, status: {type: string, enum: [active, draft, disabled]}, config: {$ref: './seal-config.schema.json'}}}
+    Resource: {allOf: [{$ref: '#/components/schemas/ResourceInput'}, {type: object, required: [id, createdAt, updatedAt], properties: {id: {type: string}, createdAt: {type: string, format: date-time}, updatedAt: {type: string, format: date-time}}}]}
